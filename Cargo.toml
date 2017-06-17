@@ -1,0 +1,14 @@
+[package]
+name = "sqtoy"
+version = "0.1.0"
+authors = ["Сухарик <suhr@i2pmail.org>"]
+
+[dependencies]
+image = "*"
+rand = "*"
+gfx = "0.16"
+gfx_window_glutin = "0.16"
+glutin = "0.8"
+
+[profile.release]
+lto = true

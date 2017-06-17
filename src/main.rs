@@ -23,6 +23,7 @@ gfx_defines! {
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         awesome: gfx::TextureSampler<[f32; 4]> = "t_Awesome",
+        switch: gfx::Global<i32> = "i_Switch",
         out: gfx::RenderTarget<ColorFormat> = "Target0",
     }
 }
@@ -182,6 +183,7 @@ pub fn main() {
     let mut data = pipe::Data {
         vbuf: vertex_buffer,
         awesome: (texture, sampler),
+        switch: 0,
         out: main_color
     };
 
@@ -201,9 +203,9 @@ pub fn main() {
 
         events_loop.poll_events(|glutin::Event::WindowEvent{window_id: _, event}| {
             use glutin::WindowEvent::*;
-            use glutin::{MouseButton, ElementState};
+            use glutin::{MouseButton, ElementState, VirtualKeyCode};
             match event {
-                KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape), _)
+                KeyboardInput(_, _, Some(VirtualKeyCode::Escape), _)
                 | Closed => running = false,
                 Resized(w, h) => {
                     gfx_glutin::update_views(&window, &mut data.out, &mut main_depth);
@@ -219,6 +221,12 @@ pub fn main() {
                     cube.start_growing(),
                 MouseInput(ElementState::Released, MouseButton::Left) =>
                     cube.stop_growing(),
+                KeyboardInput(ElementState::Pressed, _, Some(VirtualKeyCode::Space), _) =>
+                    if data.switch == 0 {
+                        data.switch = 1
+                    } else {
+                        data.switch = 0
+                    },
                 _ => (),
             }
 

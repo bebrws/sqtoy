@@ -184,7 +184,7 @@ pub fn main() {
         vbuf: vertex_buffer,
         awesome: (texture, sampler),
         switch: 0,
-        out: main_color
+        out: main_color.clone()
     };
 
     let mut running = true;
@@ -196,6 +196,7 @@ pub fn main() {
             let (vbuf, sl) = factory.create_vertex_buffer_with_slice(&vs, &*is);
 
             data.vbuf = vbuf;
+            data.out = main_color.clone();
             slice = sl;
 
             needs_update = false
@@ -208,7 +209,7 @@ pub fn main() {
                 KeyboardInput(_, _, Some(VirtualKeyCode::Escape), _)
                 | Closed => running = false,
                 Resized(w, h) => {
-                    gfx_glutin::update_views(&window, &mut data.out, &mut main_depth);
+                    gfx_glutin::update_views(&window, &mut main_color, &mut main_depth);
                     cube.update_ratio(w as f32 / h as f32);
                     window_size = (w as f32, h as f32);
                     needs_update = true
@@ -233,7 +234,7 @@ pub fn main() {
             cube.tick();
         });
 
-        encoder.clear(&data.out, BLACK);
+        encoder.clear(&main_color, BLACK);
         encoder.draw(&slice, &pso, &data);
         encoder.flush(&mut device);
         window.swap_buffers().unwrap();

@@ -6,6 +6,7 @@ extern crate glutin;
 extern crate rand;
 extern crate image;
 
+
 use gfx::traits::FactoryExt;
 use gfx::Device;
 use gfx_window_glutin as gfx_glutin;
@@ -151,7 +152,7 @@ fn load_texture<F, R>(factory: &mut F, path: &str) -> gfx::handle::ShaderResourc
     let img = image::open(path).unwrap().to_rgba();
     let (width, height) = img.dimensions();
     let kind = gfx::texture::Kind::D2(width as u16, height as u16, gfx::texture::AaMode::Single);
-    let (_, view) = factory.create_texture_immutable_u8::<ColorFormat>(kind, &[&img]).unwrap();
+    let (_, view) = factory.create_texture_immutable_u8::<ColorFormat>(kind, gfx::texture::Mipmap::Allocated, &[&img]).unwrap();
     view
 }
 
@@ -159,15 +160,20 @@ pub fn main() {
     let mut cube = Pseudocube::new();
     //cube.add_square(0.0, 0.0, 1.0, WHITE);
 
-    let events_loop = glutin::EventsLoop::new();
+    let mut events_loop = glutin::EventsLoop::new();
     let builder = glutin::WindowBuilder::new()
         .with_title("Square Toy".to_string())
-        .with_dimensions(800, 800)
-        .with_vsync();
-    let (window, mut device, mut factory, mut main_color, mut main_depth) =
-        gfx_glutin::init::<ColorFormat, DepthFormat>(builder, &events_loop);
+        .with_fullscreen(Some(events_loop.get_primary_monitor()));
+        
+    let context = glutin::ContextBuilder::new()
+        .with_gl(glutin::GL_CORE);
 
+        let (window, mut device, mut factory, mut main_color, mut main_depth) = gfx_glutin::init::<gfx::format::Srgba8, gfx::format::DepthStencil>(builder, context, &events_loop).unwrap();
+
+
+        // let (window, mut device, mut factory, mut main_color, mut main_depth) = gfx_glutin::init::<ColorFormat, DepthFormat>(builder, context, &events_loop).unwrap();
     let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+
     let pso = factory.create_pipeline_simple(
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/rect_150.glslv")),
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/rect_150.glslf")),
@@ -202,34 +208,52 @@ pub fn main() {
             needs_update = false
         }
 
-        events_loop.poll_events(|glutin::Event::WindowEvent{window_id: _, event}| {
-            use glutin::WindowEvent::*;
-            use glutin::{MouseButton, ElementState, VirtualKeyCode};
+        events_loop.poll_events(|event| {
+
             match event {
-                KeyboardInput(_, _, Some(VirtualKeyCode::Escape), _)
-                | Closed => running = false,
-                Resized(w, h) => {
-                    gfx_glutin::update_views(&window, &mut main_color, &mut main_depth);
-                    cube.update_ratio(w as f32 / h as f32);
-                    window_size = (w as f32, h as f32);
-                    needs_update = true
-                },
-                MouseMoved(x, y) => {
-                    cube.update_cursor_position(x as f32 / window_size.0, y as f32 / window_size.1);
-                    needs_update = true
-                },
-                MouseInput(ElementState::Pressed, MouseButton::Left) =>
-                    cube.start_growing(),
-                MouseInput(ElementState::Released, MouseButton::Left) =>
-                    cube.stop_growing(),
-                KeyboardInput(ElementState::Pressed, _, Some(VirtualKeyCode::Space), _) =>
-                    if data.switch == 0 {
-                        data.switch = 1
-                    } else {
-                        data.switch = 0
+                glutin::Event::WindowEvent { event, .. } => match event {
+                    glutin::WindowEvent::CloseRequested => running = false,
+                    glutin::WindowEvent::KeyboardInput {
+                        input:
+                            glutin::KeyboardInput {
+                                virtual_keycode: Some(virtual_code),
+                                state,
+                                ..
+                            },
+                        ..
+                    } => match (virtual_code, state) {
+                        (glutin::VirtualKeyCode::Escape, _) => running = false,
+                        (glutin::VirtualKeyCode::F, glutin::ElementState::Pressed) => {
+                        
+                            // if !is_fullscreen {
+                            //     window.window().set_fullscreen(Some(window.window().get_current_monitor()));
+                            //     is_fullscreen = true;
+                            // } else {
+                            //     window.window().set_fullscreen(None);
+                            //     is_fullscreen = false;
+                            // }
+                        }
+                        _ => (),
                     },
+                    glutin::WindowEvent::Resized(logical_size) => {
+                        gfx_glutin::update_views(&window, &mut main_color, &mut main_depth);
+                        cube.update_ratio(logical_size.width as f32 / logical_size.height as f32);
+                        window_size = (logical_size.width as f32, logical_size.height as f32);
+                        needs_update = true
+                    },
+                    glutin::WindowEvent::CursorMoved { device_id, position, modifiers } => {
+                        cube.update_cursor_position(position.x as f32 / window_size.0, position.y as f32 / window_size.1);
+                        needs_update = true
+                    },
+                    glutin::WindowEvent::MouseInput { device_id, state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left, modifiers } =>
+                        cube.start_growing(),
+                    glutin::WindowEvent::MouseInput{ device_id, state: glutin::ElementState::Released, button: glutin::MouseButton::Left, modifiers } =>
+                        cube.stop_growing(),                    
+                    _ => (),
+                },
                 _ => (),
             }
+
 
             cube.tick();
         });
